@@ -20,7 +20,9 @@
 
 - Heating curve: flow target = room setpoint + slope × (room setpoint - damped outside temperature), clamped 25..50 °C, plus 2 K per K the room is below setpoint.
 - Damped outside temperature (3 h filter) drives summer cut-off at 17 °C.
-- Night setback 22:00-06:00.
+- Night setback 22:00-06:00 to 19 °C, day setpoint starts 2 h early (preheat). A 3 K setback (18 °C) left the room at 19.5 °C at 08:00 because floor heating and a 37 h house react slowly; heat pump guidance is to keep setbacks near 2 K anyway.
+- Frost protection releases only 3 K above its limits; without that hysteresis it chattered on and off at 7 °C in standby.
+- Summer cut-off uses the damped outside temperature, which starts at the first reading; a test day must stay above 17 °C at its coldest hour to count as summer.
 - Compressor: start at target - 2 K, stop at target + 2 K; minimum run 6 min, minimum off 10 min (Taktsperre); EVU lock stops it at once.
 - Feedback check: compressor 90 s, circulation pump 10 s; both latch a fault.
 - Sensor faults: outside sensor out of range → fixed fallback 0 °C and alarm; room sensor → ignore room influence; buffer sensor → stop compressor and rod.
