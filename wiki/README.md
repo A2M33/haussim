@@ -1,7 +1,8 @@
 # haussim wiki
 
-- Goal (2026-11-11): flagship CV project for the user's Ausbildung applications. One simulated small house that shows all three target clusters: IT (dashboard, server), electrical/automation (PLC, distribution board, ESP32) and HVAC (heat pump). Decided with the user: simulation only (no hardware yet), German + English UI/README, start with the heat pump stage.
-- Stages: 1 heat pump heating + PLC (this) → 2 distribution board (circuits, MCB, RCD) → 3 dashboard + database history → 4 ESP32 sensor node in Wokwi → 5 Docker home server → 6 German README + drawings.
+- Goal (2026-11-11): flagship CV project for the user's Ausbildung applications. One simulated small house that shows all three target clusters: IT (dashboard, server), electrical/automation (PLC, distribution board) and HVAC (heat pump). Decided with the user: simulation only (no hardware yet), German + English UI/README, start with the heat pump stage.
+- Stages: 1 heat pump heating + PLC → 2 distribution board (circuits, MCB, RCD) → 3 plant log + report → 4 Docker home server → 5 German README + drawings.
+- Wokwi ESP32 stage dropped (user, 2026-11-12). An ESP32 node can come back later with real hardware.
 - Architecture copies tanksim on purpose (process / plc / sim split, scan-based PLC, ISA-18.2 alarms, no runtime dependencies, Pyodide demo later), so both projects read as one portfolio.
 - Publishing (user, 2026-11-11): make the public GitHub repo only after the HMI and the live demo exist, so the first impression is complete. Until then the code is local only.
 - No AI mention in README, commits or UI (user decision). Commits carry no Claude co-author line.
