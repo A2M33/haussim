@@ -28,3 +28,12 @@
 - Feedback check: compressor 90 s, circulation pump 10 s; both latch a fault.
 - Sensor faults: outside sensor out of range → fixed fallback 0 °C and alarm; room sensor → ignore room influence; buffer sensor → stop compressor and rod.
 - Frost protection: room < 7 °C or buffer < 8 °C forces circulation and heat demand.
+
+## HMI (2026-11-12)
+
+- `haussim run` serves the HMI on port 8080 (same server and CSRF / DNS-rebinding guard as tanksim). The page also has the Pyodide demo path; the GitHub Pages build (`site/`, like tanksim's `tools/build_site.py`) is still to do.
+- German first, English by a DE/EN switch (stored in localStorage). Alarm texts come in both languages from `ALARM_TEXT`; the event log stays English because it is the PLC's own log text.
+- Speeds are 1/60/120/600x, not tanksim's 1/5/20/60: the house has a 37 h time constant, so even 60x is slow to watch. 600x is one day in 2.4 minutes.
+- The night times are text fields (HH:MM), not `type="time"`: that input shows "10:00 PM" in an English browser and the field cut it to "10:00".
+- The buffer tank fill is the one colour exception to the quiet ISA-101 look: grey to amber with temperature, because the store temperature is what you read first.
+- Alarm priority: HP_LOCK, HP_FB, CIRC_FB, S_BUF and FROST are high, the rest medium.

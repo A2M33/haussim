@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haus 1 Wärmepumpe · haussim</title>
+<meta name="theme-color" content="#f2f5fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1222" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/haussim-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/haussim-16.png">
+<link rel="apple-touch-icon" href="icons/haussim-180.png">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="hmi.css">
+</head>
+<body class="waiting">
+<header class="bar">
+  <div class="plant">
+    <h1 data-i18n="title">Haus 1, Wärmepumpenheizung</h1>
+    <span class="sub" data-i18n="subtitle">Luft/Wasser-Wärmepumpe WP-101, Pufferspeicher PS-101, Fußbodenheizung</span>
+  </div>
+  <div class="clock" id="clock" role="timer" aria-label="Uhrzeit der Anlage">--:--</div>
+  <div class="bar-end">
+    <div class="segmented lang" role="group" aria-label="Sprache / Language">
+      <button type="button" data-lang="de" aria-pressed="true">DE</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <button class="alarm-summary" id="alarm-summary" type="button" aria-live="polite">--</button>
+  </div>
+</header>
+
+<p class="demo-note" id="demo-note" role="status" hidden></p>
+<div class="notice" id="link-lost" data-i18n="linkLost" hidden>Verbindung zu haussim verloren. Die Werte sind veraltet. Neuer Versuch…</div>
+<div class="notice" id="cmd-error" role="alert" hidden></div>
+
+<main class="grid" inert>
+  <section class="panel process" aria-labelledby="process-title">
+    <h2 class="visually-hidden" id="process-title" data-i18n="processTitle">Anlagenbild</h2>
+    <svg id="mimic" viewBox="0 0 680 420" role="img" aria-labelledby="process-title">
+      <!-- outside -->
+      <text class="tag" x="24" y="34">TT-100</text>
+      <text class="label" x="24" y="52" data-i18n="outside">Außen</text>
+      <text class="big" id="v-outside" x="24" y="88">--.- °C</text>
+      <text class="note" id="v-damped" x="24" y="108"></text>
+
+      <!-- grid operator signal -->
+      <g id="evu" class="evu">
+        <rect x="196" y="22" width="132" height="34" rx="4"/>
+        <circle id="evu-lamp" class="lamp-svg" cx="214" cy="39" r="6"/>
+        <text class="state" x="228" y="44" data-i18n="evu">EVU-Sperre</text>
+      </g>
+      <path class="signal-line" d="M262 56 V150"/>
+
+      <!-- heat pump outdoor unit -->
+      <text class="tag" x="100" y="146" text-anchor="middle">WP-101</text>
+      <circle id="hp-lamp" class="lamp-svg" cx="40" cy="141" r="6"/>
+      <g id="hp" class="hp">
+        <rect x="30" y="156" width="140" height="150" rx="4"/>
+        <circle class="fan" cx="88" cy="231" r="40"/>
+        <g class="blades" id="blades">
+          <path d="M88 231 L88 197 A10 10 0 0 1 100 205 Z"/>
+          <path d="M88 231 L117 248 A10 10 0 0 1 103 254 Z"/>
+          <path d="M88 231 L59 248 A10 10 0 0 1 61 234 Z"/>
+        </g>
+      </g>
+      <text class="state" id="v-hp" x="100" y="328" text-anchor="middle">--</text>
+      <text class="value" id="v-hp-power" x="100" y="348" text-anchor="middle"></text>
+      <text class="note" id="v-hp-note" x="100" y="366" text-anchor="middle"></text>
+
+      <!-- heat pump to buffer -->
+      <path id="pipe-hp-flow" class="pipe" d="M170 186 H296"/>
+      <path id="pipe-hp-return" class="pipe" d="M296 286 H170"/>
+      <path class="arrow" d="M226 180 L236 186 L226 192"/>
+      <path class="arrow" d="M240 280 L230 286 L240 292"/>
+
+      <!-- buffer tank -->
+      <text class="tag" x="338" y="112" text-anchor="middle">PS-101</text>
+      <rect id="buffer-fill" class="buffer-fill" x="298" y="120" width="80" height="250" rx="16"/>
+      <rect class="vessel" x="296" y="118" width="84" height="254" rx="18"/>
+      <text class="big-in" id="v-buffer" x="338" y="210" text-anchor="middle">--.-</text>
+      <text class="label-in" x="338" y="230" text-anchor="middle">°C</text>
+      <text class="note-in" id="v-flow-target" x="338" y="252" text-anchor="middle"></text>
+      <!-- heating rod -->
+      <g id="rod" class="rod">
+        <path d="M380 340 H352 l-4 -8 l-8 16 l-8 -16 l-8 16 l-4 -8"/>
+      </g>
+      <text class="tag" x="296" y="392">E-101</text>
+      <text class="note" id="v-rod" x="296" y="410"></text>
+
+      <!-- buffer to house, circulation pump on the flow -->
+      <path id="pipe-heat-flow" class="pipe" d="M380 150 H498 V318"/>
+      <path id="pipe-heat-return" class="pipe" d="M630 344 V358 H380"/>
+      <g id="circ" class="pump">
+        <circle cx="436" cy="150" r="16"/>
+        <path d="M429 140 L449 150 L429 160 Z"/>
+      </g>
+      <text class="tag" x="436" y="124" text-anchor="middle">P-101</text>
+      <circle id="circ-lamp" class="lamp-svg" cx="406" cy="119" r="5"/>
+      <text class="value" id="v-emitter" x="436" y="190" text-anchor="middle"></text>
+
+      <!-- house -->
+      <path class="house" d="M488 176 L564 110 L640 176 V344 H488 Z"/>
+      <text class="tag" x="564" y="166" text-anchor="middle">TT-201</text>
+      <text class="label" x="564" y="186" text-anchor="middle" data-i18n="room">Raum</text>
+      <text class="big" id="v-room" x="564" y="226" text-anchor="middle">--.- °C</text>
+      <text class="note" id="v-room-target" x="564" y="248" text-anchor="middle"></text>
+      <g id="window" class="window">
+        <rect x="604" y="262" width="26" height="34"/>
+        <path id="window-sash" d="M604 262 V296"/>
+      </g>
+      <!-- floor heating loop -->
+      <path id="floor" class="floor" d="M498 318 H630 V326 H506 V334 H630 V344"/>
+      <text class="note" id="v-season" x="564" y="392" text-anchor="middle"></text>
+    </svg>
+    <!-- on a phone the drawing is too small for numbers, so they move here -->
+    <dl class="readouts">
+      <div><dt data-i18n="room">Raum</dt><dd class="big-value" id="m-room">--.- °C</dd></div>
+      <div><dt data-i18n="outside">Außen</dt><dd id="m-outside">--.- °C</dd></div>
+      <div><dt data-i18n="buffer">Puffer</dt><dd id="m-buffer">--.- °C</dd></div>
+      <div><dt data-i18n="flowTarget">Soll Vorlauf</dt><dd id="m-flow-target">--.- °C</dd></div>
+      <div><dt data-i18n="hpPower">Wärmepumpe</dt><dd id="m-hp-power">--</dd></div>
+      <div><dt>COP</dt><dd id="m-cop">--</dd></div>
+    </dl>
+  </section>
+
+  <section class="panel faceplate" aria-labelledby="fp-title">
+    <h2 id="fp-title" data-i18n="fpTitle">Heizung</h2>
+    <p class="unit-state"><span class="pad" id="fp-lamp"></span> <span id="fp-state">--</span></p>
+
+    <div class="field">
+      <span class="field-name" id="mode-label" data-i18n="mode">Betriebsart</span>
+      <div class="segmented" role="group" aria-labelledby="mode-label">
+        <button type="button" id="btn-auto" aria-pressed="true" data-i18n="auto">Automatik</button>
+        <button type="button" id="btn-standby" aria-pressed="false" data-i18n="standby">Bereitschaft</button>
+      </div>
+    </div>
+    <p class="hint" id="mode-hint"></p>
+
+    <dl class="counters">
+      <div><dt>COP</dt><dd id="v-cop">--</dd></div>
+      <div><dt data-i18n="spf">JAZ</dt><dd id="v-spf">--</dd></div>
+      <div><dt data-i18n="starts">Starts</dt><dd id="v-starts">--</dd></div>
+      <div><dt data-i18n="runtime">Laufzeit</dt><dd id="v-runtime">--</dd></div>
+      <div><dt data-i18n="heat">Wärme</dt><dd id="v-heat">--</dd></div>
+      <div><dt data-i18n="electricity">Strom</dt><dd id="v-elec">--</dd></div>
+    </dl>
+
+    <div class="actions">
+      <button type="button" id="btn-ack" data-i18n="ack">Alarme quittieren</button>
+      <button type="button" id="btn-reset" data-i18n="reset">Störung zurücksetzen</button>
+    </div>
+
+    <h3 data-i18n="curveTitle">Heizkurve</h3>
+    <canvas id="curve" height="170" role="img" aria-labelledby="curve-caption"></canvas>
+    <p class="caption" id="curve-caption" data-i18n="curveCaption">Soll-Vorlauf über der gedämpften Außentemperatur. Der Punkt zeigt den Betrieb jetzt.</p>
+
+    <form id="sp-form" class="setpoints" novalidate>
+      <h3 data-i18n="spTitle">Sollwerte</h3>
+      <div class="sp-grid" id="sp-grid"></div>
+      <p class="sp-message" id="sp-message" role="alert"></p>
+      <div class="actions">
+        <button type="submit" id="sp-apply" disabled data-i18n="apply">Sollwerte übernehmen</button>
+        <button type="button" id="sp-discard" disabled data-i18n="discard">Änderungen verwerfen</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel trend" aria-labelledby="trend-title">
+    <h2 id="trend-title" data-i18n="trendTitle">Temperaturen, letzte 24 Stunden</h2>
+    <canvas id="trend" height="240" role="img" aria-labelledby="trend-title"></canvas>
+    <p class="legend">
+      <span><span class="key key-room"></span><span data-i18n="room">Raum</span></span>
+      <span><span class="key key-buffer"></span><span data-i18n="buffer">Puffer</span></span>
+      <span><span class="key key-target"></span><span data-i18n="flowTarget">Soll Vorlauf</span></span>
+      <span><span class="key key-outside"></span><span data-i18n="outside">Außen</span></span>
+      <span><span class="key key-hp"></span><span data-i18n="hpRunning">Wärmepumpe läuft</span></span>
+      <span><span class="key key-defrost"></span><span data-i18n="defrost">Abtauen</span></span>
+    </p>
+  </section>
+
+  <section class="panel alarms" aria-labelledby="alarms-title">
+    <h2 id="alarms-title" data-i18n="alarmsTitle">Alarme</h2>
+    <table>
+      <thead><tr>
+        <th scope="col" data-i18n="priority">Priorität</th>
+        <th scope="col" data-i18n="since">Seit</th>
+        <th scope="col">Tag</th>
+        <th scope="col" data-i18n="message">Meldung</th>
+        <th scope="col" data-i18n="state">Zustand</th>
+      </tr></thead>
+      <tbody id="alarm-rows"></tbody>
+    </table>
+    <p class="empty" id="alarm-empty" data-i18n="alarmEmpty">Alles ruhig. Neue Alarme erscheinen hier und bleiben, bis sie gegangen und quittiert sind.</p>
+    <h3 data-i18n="eventsTitle">Ereignisprotokoll</h3>
+    <ol class="events" id="events"></ol>
+  </section>
+</main>
+
+<section class="sim" aria-labelledby="sim-title" inert>
+  <h2 id="sim-title" data-i18n="simTitle">Simulator</h2>
+  <p class="sim-note" data-i18n="simNote">Außerhalb der Anlage. Ein Bediener kann das nicht. Damit testen Sie, wie die SPS reagiert.</p>
+  <div class="sim-grid">
+    <div class="field">
+      <span class="field-name" id="speed-label" data-i18n="speed">Zeitraffer</span>
+      <div class="segmented" role="group" aria-labelledby="speed-label" id="speeds"></div>
+      <button type="button" id="btn-pause" aria-pressed="false">--</button>
+    </div>
+    <label class="field">
+      <span class="field-name"><span data-i18n="outsideMean">Außentemperatur, Tagesmittel</span> <output id="outside-out">-2 °C</output></span>
+      <input type="range" id="outside-mean" min="-20" max="20" step="1" value="-2">
+    </label>
+    <div class="field">
+      <span class="field-name" id="grid-label" data-i18n="gridSignal">Netzbetreiber</span>
+      <button type="button" id="btn-evu" aria-pressed="false" data-i18n="evuSwitch">EVU-Sperre setzen</button>
+    </div>
+    <div class="field">
+      <span class="field-name" id="fault-label" data-i18n="faults">Störungen</span>
+      <div class="toggles" role="group" aria-labelledby="fault-label">
+        <button type="button" data-fault="hp" aria-pressed="false" data-i18n="faultHp">Verdichter blockieren</button>
+        <button type="button" data-fault="circ" aria-pressed="false" data-i18n="faultCirc">Pumpe festsetzen</button>
+        <button type="button" data-fault="outside_sensor" aria-pressed="false" data-i18n="faultSensor">Außenfühler abklemmen</button>
+        <button type="button" data-fault="window" aria-pressed="false" data-i18n="faultWindow">Fenster öffnen</button>
+      </div>
+      <p class="hint" id="sim-hint"></p>
+    </div>
+  </div>
+</section>
+
+<script src="hmi.js"></script>
+</body>
+</html>

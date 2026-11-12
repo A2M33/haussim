@@ -61,6 +61,10 @@ class Simulator:
             )
             self._next_sample = p.clock_s + HISTORY_EVERY_S
 
+    def history_list(self) -> list[list[float]]:
+        with self.lock:
+            return [list(h) for h in self.history]
+
     def snapshot(self) -> dict:
         with self.lock:
             p, plc = self.process, self.plc
