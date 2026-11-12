@@ -27,3 +27,6 @@ version = { attr = "haussim.__version__" }
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.setuptools.package-data]
+haussim = ["static/*", "static/fonts/*", "static/icons/*"]
