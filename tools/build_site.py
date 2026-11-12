@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ROOT / "src" / "haussim"
-MODULES = ["__init__", "process", "plc", "sim", "commands"]  # keep in sync with hmi.js
+MODULES = ["__init__", "process", "electrical", "plc", "sim", "commands"]  # keep in sync with hmi.js
 
 
 def main(out: Path) -> None:

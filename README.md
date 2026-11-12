@@ -1,6 +1,6 @@
 # haussim
 
-A small house with an air/water heat pump, a 300 L buffer tank and floor heating, and the PLC program that heats it. It comes with a browser HMI in German and English.
+A small house with an air/water heat pump, a 300 L buffer tank, floor heating and its distribution board, and the PLC program that heats it. It comes with a browser HMI in German and English.
 
 **[Try the live demo ↗](https://a2m33.github.io/haussim/)** Your browser runs the same Python code through Pyodide. Set a grid lock or block the compressor and watch the PLC react, with nothing to install.
 
@@ -38,6 +38,23 @@ Heat 87.0 kWh, electricity 31.0 kWh, seasonal COP 2.81
 - **Disconnect the outside sensor.** The reading drops to -60 °C, the PLC calls the sensor broken and carries on with a fixed 0 °C.
 - **Open a window.** The room loses about 250 W per kelvin more. The PLC raises the flow target by 2 K for every kelvin the room falls below its setpoint.
 - **Change the heating curve** (Steilheit, Parallelverschiebung) and watch the line in the chart move with it.
+- **Cause an insulation fault in the washing machine.** RCD Q1 trips and takes the circulation pump with it, so the heating stops too. Switch Q1 back on and it trips again at once. Find the faulty circuit the way an electrician does: switch the breakers off one by one until Q1 holds.
+- **Short the living room sockets.** Breaker F2 opens instantly on its magnetic release and stays open while the short is there.
+- **Overload the kitchen** with 5 kW. Breaker F3 warms up (the bar under it fills) and trips after about six minutes.
+- **Press the test button** on an RCD. Electricians tell German homeowners to do this twice a year.
+
+## The distribution board
+
+| Device | Rating | Circuit |
+| --- | --- | --- |
+| Q1 | RCD 30 mA | household: F1 lighting B10, F2 living room sockets B16, F3 kitchen sockets B16, F4 cooker B16 3-pole, F5 washing machine B16, F6 circulation pump B10 |
+| Q2 | RCD 30 mA | heat pump: F7 compressor C16 3-pole, F8 heating rod B16 3-pole |
+
+The breakers in [`electrical.py`](src/haussim/electrical.py) trip like real ones. The magnetic release opens at 5 × In for type B and 10 × In for type C, which lets the compressor's inrush through. The thermal release follows (I/In)² with a three minute time constant: it never trips at 1.13 × In, trips at 1.45 × In after about five minutes and at 2.55 × In within a minute, as IEC 60898 requires. An RCD trips once the leakage behind it reaches 21 mA.
+
+![The distribution board in the HMI after an insulation fault and a short circuit: RCD Q1 and breaker F2 are framed in red and read "Fehlerstrom" and "Kurzschluss", and the other breakers behind Q1 have no power. Each breaker has a bar for how warm its thermal release is.](docs/board.png)
+
+Household loads follow a weekday: light in the morning and evening, a kettle three times a day, the cooker at lunch and dinner, a wash at ten. The heat pump draws its real current from the simulation. Fault signal contacts on Q1, Q2, F6, F7 and F8 report a trip to the PLC, so it raises a named alarm instead of a vague feedback fault, and it lets the heating rod take over if F7 trips.
 
 ## How the PLC decides
 
@@ -79,7 +96,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-The 44 tests run a winter day, a summer day, the grid lock, a broken compressor, a seized pump, a broken outside sensor, the high-pressure switch, an open window and frost. They also check every HMI command and the HTTP server's guard against commands from other websites.
+The 54 tests check the breaker curves against IEC 60898, the RCDs, short circuits and overloads. They run a winter day, a summer day, the grid lock, a broken compressor, a seized pump, a broken outside sensor, the high-pressure switch, an open window and frost. They also check every HMI command and the HTTP server's guard against commands from other websites.
 
 ---
 
@@ -87,7 +104,7 @@ The 44 tests run a winter day, a summer day, the grid lock, a broken compressor,
 
 # haussim (Deutsch)
 
-Ein kleines Haus mit Luft/Wasser-Wärmepumpe, 300-L-Pufferspeicher und Fußbodenheizung, dazu das SPS-Programm, das es heizt. Mit Browser-HMI auf Deutsch und Englisch.
+Ein kleines Haus mit Luft/Wasser-Wärmepumpe, 300-L-Pufferspeicher, Fußbodenheizung und Unterverteilung, dazu das SPS-Programm, das es heizt. Mit Browser-HMI auf Deutsch und Englisch.
 
 **[Live-Demo öffnen ↗](https://a2m33.github.io/haussim/)** Ihr Browser führt denselben Python-Code mit Pyodide aus. Setzen Sie eine EVU-Sperre oder blockieren Sie den Verdichter und sehen Sie zu, wie die SPS reagiert.
 
@@ -113,6 +130,13 @@ Der Browser öffnet die HMI unter http://localhost:8080. Mit `--speed 600` läuf
 - **Frostschutz** auch in Bereitschaft, mit Hysterese
 - **Überwachung:** Rückmeldung von Verdichter und Heizkreispumpe, Fühlerbruch mit Ersatzwert
 - **Alarme nach ISA-18.2**, HMI nach ISA-101
+
+## Unterverteilung
+
+- **FI-Schutzschalter Q1 und Q2**, 30 mA, mit Prüftaste
+- **Leitungsschutzschalter** B10, B16 und C16 (Verdichter), thermisch und magnetisch auslösend nach IEC 60898
+- **Fehlersignalkontakte** melden der SPS, welcher Schalter ausgelöst hat
+- **Fehlersuche:** Bei einem Isolationsfehler löst Q1 sofort wieder aus. Schalten Sie die Leitungsschutzschalter nacheinander aus, bis Q1 hält.
 
 ## Lizenz
 

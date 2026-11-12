@@ -89,6 +89,18 @@ def main(out: Path) -> None:
             record(4)
             save_gif(frames, out / "demo.gif")
 
+            click(page, "[data-fault=short]")  # first, while Q1 still feeds F2
+            page.wait_for_timeout(1500)
+            click(page, "[data-fault=insulation]")
+            page.wait_for_timeout(1500)
+            page.locator(".board").screenshot(path=out / "board.png")
+            for fault in ("insulation", "short"):
+                click(page, f"[data-fault={fault}]")
+            for device in ("F2", "Q1"):
+                click(page, f'[data-device="{device}"]')
+            click(page, "#btn-reset")
+            click(page, "#btn-ack")
+
             page.click("[data-lang=en]")
             click(page, "[data-fault=circ]")
             page.wait_for_timeout(2500)

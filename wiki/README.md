@@ -37,3 +37,12 @@
 - The night times are text fields (HH:MM), not `type="time"`: that input shows "10:00 PM" in an English browser and the field cut it to "10:00".
 - The buffer tank fill is the one colour exception to the quiet ISA-101 look: grey to amber with temperature, because the store temperature is what you read first.
 - Alarm priority: HP_LOCK, HP_FB, CIRC_FB, S_BUF and FROST are high, the rest medium.
+
+## Stage 2: distribution board (2026-11-12)
+
+- `electrical.py`: two RCDs (Q1 household, Q2 heat pump, 30 mA) and eight MCBs. The heat pump circuits sit on their own RCD because an inverter compressor can leak DC that would blind a shared type A RCD; in real installs Q2 would be type B.
+- Thermal release: heat state follows (I/In)² with tau 180 s, trips at 1.69 (1.3²). Chosen so 1.13 In never trips, 1.45 In trips in about 5 min and 2.55 In in under 60 s, the IEC 60898 limits. Magnetic: 5 × In for B, 10 × In for C. The magnetic trip returns before the thermal update; otherwise the 600 A short heated the bimetal so much that the breaker tripped again as "overload" after the short was gone.
+- Compressor is C16, not B16, for its inrush.
+- RCD trips at 70 % of 30 mA (the standard window is 50-100 %).
+- The board feeds the process through `hp_supply`, `rod_supply`, `circ_supply`. A missing supply stops the motor at once (no ramp) and the PLC skips the feedback check for it, so a tripped F7 gives F7_TRIP, not HP_FB. Fault signal contacts (Fehlersignalkontakte) on Q1, Q2, F6, F7, F8 are PLC inputs; a manual switch-off is no alarm.
+- Household load profile is fixed (no randomness) so tests can rely on quiet hours, e.g. 03:00 for the overload test.

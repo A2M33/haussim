@@ -16,6 +16,7 @@ FAULTS = {
     "window": "window_open",
     "outside_sensor": "outside_sensor_broken",
 }
+BOARD_FAULTS = {"short": "short_circuit", "overload": "overload", "insulation": "insulation_fault"}
 
 
 class CommandError(ValueError):
@@ -48,6 +49,12 @@ def _apply_setpoints(sim: Simulator, value) -> None:
         raise CommandError(str(err)) from None
 
 
+def _flush_board_events(sim: Simulator) -> None:
+    for kind, text in sim.board.events:
+        sim.plc._log(kind, text)
+    sim.board.events.clear()
+
+
 def apply_command(sim: Simulator, body: dict) -> None:
     cmd = body.get("cmd")
     value = body.get("value")
@@ -76,8 +83,23 @@ def apply_command(sim: Simulator, body: dict) -> None:
             p.outside_mean_c = float(value)
         elif cmd == "fault":
             name = body.get("name")
-            if name not in FAULTS:
-                raise CommandError("Fault must be one of " + ", ".join(FAULTS))
-            setattr(p, FAULTS[name], _switch(value))
+            if name in FAULTS:
+                setattr(p, FAULTS[name], _switch(value))
+            elif name in BOARD_FAULTS:
+                setattr(sim.board, BOARD_FAULTS[name], _switch(value))
+            else:
+                raise CommandError("Fault must be one of " + ", ".join([*FAULTS, *BOARD_FAULTS]))
+        elif cmd == "switch":
+            device = body.get("device")
+            if device not in sim.board.rcds and device not in sim.board.breakers:
+                raise CommandError(f"Unknown device {device!r}")
+            sim.board.switch(device, _switch(value))
+            _flush_board_events(sim)
+        elif cmd == "rcd_test":
+            device = body.get("device")
+            if device not in sim.board.rcds:
+                raise CommandError(f"{device!r} is not an RCD")
+            sim.board.test_rcd(device)
+            _flush_board_events(sim)
         else:
             raise CommandError(f"Unknown command {cmd!r}")

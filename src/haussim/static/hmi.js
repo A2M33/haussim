@@ -63,6 +63,17 @@ const I18N = {
     demoFailed: (e) => `Die Demo konnte nicht starten: ${e}. Installieren Sie haussim mit pip, um es lokal zu starten.`,
     demoReady: 'Live-Demo: Das SPS-Programm läuft in Ihrem Browser. <a href="https://github.com/A2M33/haussim#starten">So starten Sie haussim lokal.</a>',
     noConnection: "Keine Verbindung zu haussim",
+    boardTitle: "Unterverteilung UV-1", phasesLabel: "Hausanschluss, Strom je Außenleiter",
+    meterHouse: "Zähler Haushalt", meterHp: "Zähler Wärmepumpe",
+    boardHint: "Ein Klick auf einen Schalter schaltet ihn aus oder ein. Ein ausgelöster Schalter bleibt aus, bis Sie ihn wieder einschalten.",
+    faultShort: "Kurzschluss Steckdosen Wohnen", faultOverload: "Überlast Küche, 5 kW",
+    faultInsulation: "Isolationsfehler Waschmaschine",
+    leverOn: "Ein", leverOff: "Aus", testButton: "Prüftaste T",
+    tripShort: "Kurzschluss", tripOverload: "Überlast", tripLeak: "Fehlerstrom", tripTest: "Prüfung",
+    leak: (ma) => `Fehlerstrom ${ma} mA`,
+    switchLabel: (id, name, on) => `${id} ${name}, ${on ? "eingeschaltet" : "ausgeschaltet"}. Klicken zum ${on ? "Ausschalten" : "Einschalten"}`,
+    simHintInsulation: "Q1 löst sofort wieder aus, solange der fehlerhafte Stromkreis eingeschaltet ist. Schalten Sie die Leitungsschutzschalter nacheinander aus, um ihn zu finden.",
+    simHintOverload: "Der Schalter F3 erwärmt sich und löst nach einigen Minuten aus.",
   },
   en: {
     title: "House 1, heat pump heating",
@@ -123,6 +134,17 @@ const I18N = {
     demoFailed: (e) => `The demo could not start: ${e}. Install haussim with pip to run it locally.`,
     demoReady: 'Live demo: the PLC program runs in your browser. <a href="https://github.com/A2M33/haussim#run-it">Run haussim locally.</a>',
     noConnection: "No connection to haussim",
+    boardTitle: "Distribution board UV-1", phasesLabel: "House connection, current per phase",
+    meterHouse: "Household meter", meterHp: "Heat pump meter",
+    boardHint: "Click a switch to turn it off or on. A tripped device stays off until you switch it on again.",
+    faultShort: "Short circuit, living room sockets", faultOverload: "Overload kitchen, 5 kW",
+    faultInsulation: "Insulation fault, washing machine",
+    leverOn: "On", leverOff: "Off", testButton: "Test button T",
+    tripShort: "Short circuit", tripOverload: "Overload", tripLeak: "Earth leakage", tripTest: "Test",
+    leak: (ma) => `Leakage ${ma} mA`,
+    switchLabel: (id, name, on) => `${id} ${name}, ${on ? "on" : "off"}. Click to switch ${on ? "off" : "on"}`,
+    simHintInsulation: "Q1 trips again at once while the faulty circuit is on. Switch the breakers off one by one to find it.",
+    simHintOverload: "Breaker F3 warms up and trips after a few minutes.",
   },
 };
 
@@ -150,7 +172,9 @@ const LIMITS = {
   flow_max: [30, 60], hysteresis: [0.5, 5], summer_cutoff: [10, 22], bivalent: [-20, 5],
   buffer_high: [45, 70], room_low: [5, 20],
 };
-const HIGH_PRIORITY = new Set(["HP_LOCK", "HP_FB", "CIRC_FB", "S_BUF", "FROST"]);
+const HIGH_PRIORITY = new Set(["HP_LOCK", "HP_FB", "CIRC_FB", "S_BUF", "FROST", "Q1_TRIP", "Q2_TRIP", "F6_TRIP", "F7_TRIP"]);
+const MAIN_FUSE_A = 35;
+const TRIP_WORD = { short: "tripShort", overload: "tripOverload", leak: "tripLeak", test: "tripTest" };
 const RESETTABLE = new Set(["HP_LOCK", "HP_FB", "CIRC_FB", "S_OUT", "S_ROOM", "S_BUF"]);
 const SPEEDS = [1, 60, 120, 600];
 const TREND_SPAN_S = 86400;
@@ -165,7 +189,7 @@ let spProblem = null;
 let demo = null;
 
 const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/";
-const DEMO_MODULES = ["__init__", "process", "plc", "sim", "commands"];
+const DEMO_MODULES = ["__init__", "process", "electrical", "plc", "sim", "commands"];
 const DEMO_GLUE = `
 import json, sys
 sys.path.insert(0, "/home/pyodide")
@@ -367,6 +391,105 @@ function buildSpeeds() {
   }
 }
 
+// ---- distribution board ---------------------------------------------
+
+function buildBoard() {
+  const phases = $("phases");
+  for (const n of [1, 2, 3]) {
+    const row = document.createElement("div");
+    row.className = "phase";
+    row.innerHTML = `<span>L${n}</span><span class="phase-track"><span class="phase-fill" id="ph${n}-fill"></span></span><span class="phase-value" id="ph${n}-value">--</span>`;
+    phases.append(row);
+  }
+}
+
+function moduleFor(dev, isRcd) {
+  const m = document.createElement("div");
+  m.className = "module" + (isRcd ? " rcd" : dev.phases === 3 ? " wide" : "");
+  m.dataset.id = dev.id;
+  const parts = [
+    ["dev-id", dev.id],
+    ["dev-rating", isRcd ? `${dev.rated_ma} mA` : dev.rating + (dev.phases === 3 ? " 3p" : ` L${dev.phase}`)],
+    ["dev-name", ""],
+  ];
+  for (const [cls, text] of parts) {
+    const span = document.createElement("span");
+    span.className = cls;
+    span.textContent = text;
+    m.append(span);
+  }
+  const lever = document.createElement("button");
+  lever.type = "button";
+  lever.className = "lever";
+  lever.dataset.device = dev.id;
+  m.append(lever);
+  const reading = document.createElement("span");
+  reading.className = "dev-reading";
+  m.append(reading);
+  if (isRcd) {
+    const test = document.createElement("button");
+    test.type = "button";
+    test.className = "test-btn";
+    test.dataset.test = dev.id;
+    m.append(test);
+  } else {
+    const track = document.createElement("span");
+    track.className = "heat-track";
+    track.innerHTML = '<span class="heat-fill"></span>';
+    m.append(track);
+  }
+  return m;
+}
+
+function renderBoard(s) {
+  const b = s.board;
+  const rails = $("rails");
+  if (!rails.children.length) {
+    for (const rcd of b.rcds) {
+      const rail = document.createElement("div");
+      rail.className = "rail";
+      rail.append(moduleFor(rcd, true));
+      for (const br of b.breakers.filter((x) => x.rcd === rcd.id)) rail.append(moduleFor(br, false));
+      rails.append(rail);
+    }
+  }
+  const pick = (names) => names[lang === "de" ? 0 : 1];
+  const live = new Set(b.rcds.filter((r) => r.closed).map((r) => r.id));
+  for (const dev of [...b.rcds, ...b.breakers]) {
+    const m = rails.querySelector(`[data-id="${dev.id}"]`);
+    const isRcd = "rated_ma" in dev;
+    m.classList.toggle("tripped", Boolean(dev.trip));
+    m.querySelector(".dev-name").textContent = pick(dev.name);
+    const lever = m.querySelector(".lever");
+    lever.setAttribute("aria-pressed", dev.closed);
+    lever.textContent = dev.closed ? t("leverOn") : t("leverOff");
+    lever.setAttribute("aria-label", t("switchLabel", dev.id, pick(dev.name), dev.closed));
+    let reading;
+    if (dev.trip) reading = t(TRIP_WORD[dev.trip]);
+    else if (isRcd) reading = dev.leak_ma > 0 ? t("leak", num(dev.leak_ma, 0)) : "";
+    else reading = dev.closed && live.has(dev.rcd) ? num(dev.current_a) + " A" : "–";
+    m.querySelector(".dev-reading").textContent = reading;
+    if (isRcd) {
+      const test = m.querySelector(".test-btn");
+      test.textContent = t("testButton");
+      test.disabled = !dev.closed;
+    } else {
+      const fill = m.querySelector(".heat-fill");
+      const heat = Math.min(1, dev.heat);
+      fill.style.width = (heat * 100).toFixed(0) + "%";
+      fill.classList.toggle("hot", heat > 0.75);
+    }
+  }
+  b.phase_a.forEach((a, i) => {
+    const fill = $(`ph${i + 1}-fill`);
+    fill.style.width = Math.min(100, (a / MAIN_FUSE_A) * 100).toFixed(1) + "%";
+    fill.classList.toggle("high", a > 0.8 * MAIN_FUSE_A);
+    setText(`ph${i + 1}-value`, num(a) + " A");
+  });
+  setText("v-house-kwh", num(b.house_kwh) + " kWh");
+  setText("v-hp-kwh", num(b.hp_kwh) + " kWh");
+}
+
 // ---- rendering -------------------------------------------------------
 
 function hpState(s) {
@@ -542,10 +665,13 @@ function renderSim(s) {
   const faults = {
     hp: s.sim.hp_broken, circ: s.sim.circ_broken,
     outside_sensor: s.sim.outside_sensor_broken, window: s.sim.window_open,
+    short: s.sim.short_circuit, overload: s.sim.overload, insulation: s.sim.insulation_fault,
   };
   for (const b of document.querySelectorAll("[data-fault]")) b.setAttribute("aria-pressed", faults[b.dataset.fault]);
   setText("sim-hint",
     s.sim.hp_broken && !s.hp_cmd && !active(s, "HP_FB") ? t("simHintHp")
+      : s.sim.insulation_fault ? t("simHintInsulation")
+      : s.sim.overload && s.board.breakers.find((b) => b.id === "F3").closed ? t("simHintOverload")
       : s.sim.outside_sensor_broken && active(s, "S_OUT") ? t("simHintSensor")
         : s.sim.window_open ? t("simHintWindow") : "");
 }
@@ -704,6 +830,7 @@ function render(s) {
   renderFaceplate(s);
   renderAlarms(s);
   renderSim(s);
+  renderBoard(s);
   drawCurve();
   drawTrend();
 }
@@ -751,12 +878,20 @@ function wire() {
     renderSetpointForm(state);
   });
 
+  $("rails").addEventListener("click", (e) => {
+    const lever = e.target.closest("[data-device]");
+    const test = e.target.closest("[data-test]");
+    if (lever) act("switch", { device: lever.dataset.device, value: lever.getAttribute("aria-pressed") !== "true" });
+    else if (test) act("rcd_test", { device: test.dataset.test });
+  });
+
   window.addEventListener("resize", () => { drawCurve(); drawTrend(); });
 }
 
 async function start() {
   buildSetpointForm();
   buildSpeeds();
+  buildBoard();
   wire();
   applyLanguage();
   setText("alarm-summary", t("noData"));

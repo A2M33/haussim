@@ -94,6 +94,10 @@ class Process:
         self.circ_broken = False  # circulation pump seized
         self.window_open = False  # extra ventilation loss
         self.outside_sensor_broken = False
+        # Power from the distribution board; the simulator sets these each step.
+        self.hp_supply = True
+        self.rod_supply = True
+        self.circ_supply = True
 
         self._rng = random.Random(seed)
         self._wander = 0.0
@@ -153,11 +157,13 @@ class Process:
         self._weather(dt)
         self._heat_pump(dt)
 
-        target = 1.0 if self.circ_cmd and not self.circ_broken else 0.0
+        if not self.circ_supply:
+            self.circ = 0.0
+        target = 1.0 if self.circ_cmd and self.circ_supply and not self.circ_broken else 0.0
         ramp = dt / CIRC_RAMP_S
         self.circ += max(-ramp, min(ramp, target - self.circ))
 
-        rod_on = self.rod_cmd and self.buffer_c < ROD_CUTOUT_C
+        rod_on = self.rod_cmd and self.rod_supply and self.buffer_c < ROD_CUTOUT_C
         self.rod_w_now = self.rod_w if rod_on else 0.0
 
         self.emitter_w = self.circ * self.emitter_w_per_k * max(0.0, self.buffer_c - self.room_c)
@@ -184,7 +190,9 @@ class Process:
         self.outside_c = base + self._wander
 
     def _heat_pump(self, dt: float) -> None:
-        can_run = self.hp_cmd and not self.hp_broken and not self.hp_lockout
+        can_run = self.hp_cmd and self.hp_supply and not self.hp_broken and not self.hp_lockout
+        if not self.hp_supply:
+            self.compressor = 0.0  # no ramp-down without power
         ramp = dt / COMPRESSOR_RAMP_S
         self.compressor += max(-ramp, min(ramp, (1.0 if can_run else 0.0) - self.compressor))
 

@@ -9,18 +9,21 @@ from __future__ import annotations
 import threading
 from collections import deque
 
-from .plc import ALARM_TEXT, Inputs, Plc
+from .electrical import Board
+from .plc import ALARM_TEXT, TRIP_TAGS, Inputs, Plc
 from .process import Process
 
 HISTORY_EVERY_S = 60.0  # one trend sample per simulated minute
 HISTORY_LEN = 1440  # one simulated day
+CIRC_PUMP_W = 45.0
 MAX_DT = 5.0  # larger steps would let the feedback timers skip
 
 
 class Simulator:
-    def __init__(self, process: Process | None = None, plc: Plc | None = None) -> None:
+    def __init__(self, process: Process | None = None, plc: Plc | None = None, board: Board | None = None) -> None:
         self.process = process or Process()
         self.plc = plc or Plc()
+        self.board = board or Board.standard()
         self.lock = threading.RLock()
         self.speed = 120.0
         self.paused = False
@@ -36,7 +39,10 @@ class Simulator:
                 dt -= part
 
     def _step(self, dt: float) -> None:
-        p, plc = self.process, self.plc
+        p, plc, board = self.process, self.plc, self.board
+        p.hp_supply = board.energized("F7")
+        p.rod_supply = board.energized("F8")
+        p.circ_supply = board.energized("F6")
         out = plc.scan(
             Inputs(
                 outside=p.outside_sensor,
@@ -47,6 +53,10 @@ class Simulator:
                 hp_lockout=p.hp_lockout,
                 defrosting=p.defrosting,
                 evu_lock=p.evu_lock,
+                hp_supply=p.hp_supply,
+                circ_supply=p.circ_supply,
+                trips={dev: (board.rcd_tripped(dev) if dev in board.rcds else board.breaker_tripped(dev))
+                       for dev in TRIP_TAGS},
             ),
             clock=p.clock_s,
             dt=dt,
@@ -55,6 +65,10 @@ class Simulator:
             plc._log("OPR", "High-pressure switch reset")
         p.hp_cmd, p.circ_cmd, p.rod_cmd = out.hp, out.circ, out.rod
         p.step(dt)
+        board.step(dt, p.minute_of_day, p.hp_elec_w, p.rod_w_now, CIRC_PUMP_W * p.circ)
+        for kind, text in board.events:
+            plc._log(kind, text)
+        board.events.clear()
         if p.clock_s >= self._next_sample:
             self.history.append(
                 (p.clock_s, p.outside_c, p.room_c, p.buffer_c, plc.flow_target, p.hp_heat_w, p.hp_elec_w + p.rod_w_now)
@@ -111,6 +125,7 @@ class Simulator:
                     if a.shown
                 ],
                 "events": [list(e) for e in list(plc.events)[-30:]],
+                "board": self.board.snapshot(),
                 "sim": {
                     "speed": self.speed,
                     "paused": self.paused,
@@ -119,5 +134,8 @@ class Simulator:
                     "circ_broken": p.circ_broken,
                     "window_open": p.window_open,
                     "outside_sensor_broken": p.outside_sensor_broken,
+                    "short_circuit": self.board.short_circuit,
+                    "overload": self.board.overload,
+                    "insulation_fault": self.board.insulation_fault,
                 },
             }

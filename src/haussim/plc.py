@@ -74,7 +74,14 @@ ALARM_TEXT = {
     "BUF_HIGH": ("Buffer temperature high", "Puffertemperatur zu hoch"),
     "ROOM_LOW": ("Room temperature low", "Raumtemperatur zu niedrig"),
     "FROST": ("Frost protection active", "Frostschutz aktiv"),
+    # Fault signal contacts (Fehlersignalkontakte) in the distribution board
+    "Q1_TRIP": ("RCD Q1 household tripped, circulation pump has no power", "FI Q1 Haushalt ausgelöst, Heizkreispumpe ohne Spannung"),
+    "Q2_TRIP": ("RCD Q2 heat pump tripped", "FI Q2 Wärmepumpe ausgelöst"),
+    "F6_TRIP": ("Breaker F6 circulation pump tripped", "LS F6 Heizkreispumpe ausgelöst"),
+    "F7_TRIP": ("Breaker F7 heat pump tripped", "LS F7 Wärmepumpe ausgelöst"),
+    "F8_TRIP": ("Breaker F8 heating rod tripped", "LS F8 Heizstab ausgelöst"),
 }
+TRIP_TAGS = ("Q1", "Q2", "F6", "F7", "F8")
 
 
 @dataclass
@@ -99,6 +106,9 @@ class Inputs:
     hp_lockout: bool
     defrosting: bool
     evu_lock: bool
+    hp_supply: bool = True  # compressor breaker and its RCD closed
+    circ_supply: bool = True
+    trips: dict = field(default_factory=dict)  # device id -> tripped, from the fault signal contacts
 
 
 @dataclass
@@ -238,7 +248,8 @@ class Plc:
             want = True  # minimum run time; faults and locks below still win
         if not self.out.hp and want and clock - self._off_since < MIN_OFF_S:
             want = False  # Taktsperre
-        blocked = i.evu_lock or i.hp_lockout or self.hp_fault or not buffer_ok or self.circ_fault
+        blocked = (i.evu_lock or i.hp_lockout or self.hp_fault or not buffer_ok or self.circ_fault
+                   or not i.hp_supply or not i.circ_supply)
         if blocked:
             want = False
         if want and not self.out.hp:
@@ -249,8 +260,8 @@ class Plc:
         out.hp = want
 
         # Heating rod: backup when the heat pump is unavailable, help below the bivalent point.
-        hp_unavailable = i.hp_lockout or self.hp_fault
-        rod_need = self.heating and buffer_ok and not self.circ_fault and not i.evu_lock
+        hp_unavailable = i.hp_lockout or self.hp_fault or not i.hp_supply
+        rod_need = self.heating and buffer_ok and not self.circ_fault and i.circ_supply and not i.evu_lock
         cold = self.outside_damped < sp["bivalent"]
         if rod_need and (hp_unavailable or cold) and i.buffer <= self.flow_target - hyst - 1:
             out.rod = True
@@ -284,13 +295,13 @@ class Plc:
 
     def _check_feedback(self, i: Inputs, dt: float) -> None:
         # Compressor: a lockout explains a missing feedback, so it is not a second fault.
-        if self.out.hp != i.hp_running and not i.hp_lockout:
+        if self.out.hp != i.hp_running and not i.hp_lockout and i.hp_supply:
             self._hp_mismatch += dt
             if self._hp_mismatch >= HP_FEEDBACK_S:
                 self.hp_fault = True
         else:
             self._hp_mismatch = 0.0
-        if self.out.circ != i.circ_running:
+        if self.out.circ != i.circ_running and i.circ_supply:
             self._circ_mismatch += dt
             if self._circ_mismatch >= CIRC_FEEDBACK_S:
                 self.circ_fault = True
@@ -312,6 +323,7 @@ class Plc:
             and not self.sensor_faults["room"]
             and _band(a["ROOM_LOW"].active, i.room <= sp["room_low"], i.room > sp["room_low"] + db),
             "FROST": frost,
+            **{f"{dev}_TRIP": bool(i.trips.get(dev)) for dev in TRIP_TAGS},
         }
         for tag, active in conditions.items():
             alarm = a[tag]

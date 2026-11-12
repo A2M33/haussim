@@ -193,6 +193,20 @@
     <h3 data-i18n="eventsTitle">Ereignisprotokoll</h3>
     <ol class="events" id="events"></ol>
   </section>
+  <section class="panel board" aria-labelledby="board-title">
+    <h2 id="board-title" data-i18n="boardTitle">Unterverteilung UV-1</h2>
+    <div class="board-top">
+      <div class="phases" id="phases" role="group" aria-labelledby="phases-label">
+        <span class="field-name" id="phases-label" data-i18n="phasesLabel">Hausanschluss, Strom je Außenleiter</span>
+      </div>
+      <dl class="meters">
+        <div><dt data-i18n="meterHouse">Zähler Haushalt</dt><dd id="v-house-kwh">--</dd></div>
+        <div><dt data-i18n="meterHp">Zähler Wärmepumpe</dt><dd id="v-hp-kwh">--</dd></div>
+      </dl>
+    </div>
+    <div class="rails" id="rails"></div>
+    <p class="hint" data-i18n="boardHint">Ein Klick auf einen Schalter schaltet ihn aus oder ein. Ein ausgelöster Schalter bleibt aus, bis Sie ihn wieder einschalten.</p>
+  </section>
 </main>
 
 <section class="sim" aria-labelledby="sim-title" inert>
@@ -219,6 +233,9 @@
         <button type="button" data-fault="circ" aria-pressed="false" data-i18n="faultCirc">Pumpe festsetzen</button>
         <button type="button" data-fault="outside_sensor" aria-pressed="false" data-i18n="faultSensor">Außenfühler abklemmen</button>
         <button type="button" data-fault="window" aria-pressed="false" data-i18n="faultWindow">Fenster öffnen</button>
+        <button type="button" data-fault="short" aria-pressed="false" data-i18n="faultShort">Kurzschluss Steckdosen Wohnen</button>
+        <button type="button" data-fault="overload" aria-pressed="false" data-i18n="faultOverload">Überlast Küche, 5 kW</button>
+        <button type="button" data-fault="insulation" aria-pressed="false" data-i18n="faultInsulation">Isolationsfehler Waschmaschine</button>
       </div>
       <p class="hint" id="sim-hint"></p>
     </div>
