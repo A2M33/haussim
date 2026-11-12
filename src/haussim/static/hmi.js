@@ -200,7 +200,8 @@ const t = (key, ...args) => {
 };
 
 function num(value, digits = 1) {
-  return Number(value).toLocaleString(lang, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const rounded = Number(Number(value).toFixed(digits)) || 0; // -0.04 must not read "-0.0"
+  return rounded.toLocaleString(lang, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
 function hhmm(minute) {
