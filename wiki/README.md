@@ -46,3 +46,15 @@
 - RCD trips at 70 % of 30 mA (the standard window is 50-100 %).
 - The board feeds the process through `hp_supply`, `rod_supply`, `circ_supply`. A missing supply stops the motor at once (no ramp) and the PLC skips the feedback check for it, so a tripped F7 gives F7_TRIP, not HP_FB. Fault signal contacts (Fehlersignalkontakte) on Q1, Q2, F6, F7, F8 are PLC inputs; a manual switch-off is no alarm.
 - Household load profile is fixed (no randomness) so tests can rely on quiet hours, e.g. 03:00 for the overload test.
+
+## Stage 3: plant log and report (2026-11-12)
+
+- `history.py` keeps the log in SQLite from the standard library (no server, no dependency; Pyodide ships it as a loadable package). Energy, starts, run time and EVU time are stored as meter readings that only count up. A day's figure is its last reading minus the previous day's last reading (`LAG` window). That stays exact at any sample interval, which is why the demo year can use 15-minute samples (about 4 MB for 365 days) without losing energy.
+- A log counts calendar days, so `--db` runs start at 00:00 and `simulate --db` stops one second before midnight; without that a year from 06:00 left a one-day "January 2027".
+- `--db FILE` continues an existing log: next calendar day, meters picked up where they stopped (`Simulator.resume`).
+- `--seasonal`: outside mean = 9.5 - 8.8 cos(2π(doy-15)/365.25), about the DWD 1991-2020 German normals (1 °C mid-January, 18 °C mid-July), plus an AR(1) day-to-day offset (0.75, σ 2.2 K, clamped ±8 K) so cold snaps last a few days. Moving the outside slider in the HMI switches the calendar off.
+- Sample year (2026, seed 1): heat about 12,600 kWh, heat pump electricity about 3,300 kWh, JAZ about 3.8, household about 2,750 kWh, heating rod 0 kWh (the coldest days stay above the -12 °C bivalent point). Summer months show JAZ near 6 because there is no hot water yet; a DHW stage would bring that down to real-world values.
+- Household load profile was cut after the first year run showed about 12 kWh/day (cooker 3 kW for 1.5 h, 220 W lighting). Now about 6.8 kWh/day.
+- Report charts follow the dataviz skill: one kWh axis from zero, two series validated with its palette script (light #a8690a / #2f6fd0 on #f2f5fa, dark #b87a14 / #5b8def on #0b1222, all checks pass), legend plus hover tooltip, tables as the table view. Grey for electricity failed the chroma check, hence blue.
+- `report.js` loads before `hmi.js` (its strings must exist when hmi.js applies the language at start) and only uses hmi.js helpers at call time.
+- The demo's report shows the prebuilt sample year (`site/year.db`, built by `tools/build_site.py`, about 4 minutes in CI); the live demo plant does not log.

@@ -20,6 +20,10 @@
   </div>
   <div class="clock" id="clock" role="timer" aria-label="Uhrzeit der Anlage">--:--</div>
   <div class="bar-end">
+    <div class="segmented views" role="group" aria-label="Ansicht">
+      <button type="button" data-view="plant" aria-pressed="true" data-i18n="viewPlant">Anlage</button>
+      <button type="button" data-view="report" aria-pressed="false" data-i18n="viewReport">Auswertung</button>
+    </div>
     <div class="segmented lang" role="group" aria-label="Sprache / Language">
       <button type="button" data-lang="de" aria-pressed="true">DE</button>
       <button type="button" data-lang="en" aria-pressed="false">EN</button>
@@ -242,6 +246,62 @@
   </div>
 </section>
 
+<section class="report" id="report" aria-labelledby="report-title" hidden>
+  <div class="report-head">
+    <h2 id="report-title" data-i18n="reportTitle">Auswertung</h2>
+    <p class="hint" id="report-source"></p>
+    <button type="button" id="report-refresh" data-i18n="refresh">Aktualisieren</button>
+  </div>
+  <p class="empty" id="report-empty" hidden data-i18n="reportEmpty">Noch keine Aufzeichnung. Lassen Sie die Anlage einen Tag laufen oder starten Sie haussim mit --db.</p>
+  <dl class="tiles" id="tiles"></dl>
+
+  <section class="panel" aria-labelledby="months-title">
+    <h3 id="months-title" data-i18n="monthsTitle">Wärme und Strom je Monat</h3>
+    <div class="chart-box">
+      <canvas id="chart-months" height="260" role="img" aria-labelledby="months-title"></canvas>
+      <div class="tooltip" id="tip-months" role="status" hidden></div>
+    </div>
+    <p class="legend">
+      <span><span class="key key-heat"></span><span data-i18n="seriesHeat">Wärme</span></span>
+      <span><span class="key key-elec"></span><span data-i18n="seriesElec">Strom Wärmepumpe und Heizstab</span></span>
+      <span class="legend-note" data-i18n="clickMonth">Klicken Sie auf einen Monat für seine Tage.</span>
+    </p>
+    <div class="table-wrap"><table class="data" id="months-table"></table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="days-title">
+    <h3 id="days-title">--</h3>
+    <div class="chart-box">
+      <canvas id="chart-days" height="220" role="img" aria-labelledby="days-title"></canvas>
+      <div class="tooltip" id="tip-days" role="status" hidden></div>
+    </div>
+    <p class="legend">
+      <span><span class="key key-heat"></span><span data-i18n="seriesHeat">Wärme</span></span>
+      <span><span class="key key-elec"></span><span data-i18n="seriesElec">Strom Wärmepumpe und Heizstab</span></span>
+      <span class="legend-note" data-i18n="clickDay">Klicken Sie auf einen Tag für seinen Verlauf.</span>
+    </p>
+    <div class="table-wrap"><table class="data" id="days-table"></table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="day-title">
+    <h3 id="day-title">--</h3>
+    <div class="chart-box">
+      <canvas id="chart-day" height="240" role="img" aria-labelledby="day-title"></canvas>
+      <div class="tooltip" id="tip-day" role="status" hidden></div>
+    </div>
+    <p class="legend">
+      <span><span class="key key-room"></span><span data-i18n="room">Raum</span></span>
+      <span><span class="key key-buffer"></span><span data-i18n="buffer">Puffer</span></span>
+      <span><span class="key key-target"></span><span data-i18n="flowTarget">Soll Vorlauf</span></span>
+      <span><span class="key key-outside"></span><span data-i18n="outside">Außen</span></span>
+      <span><span class="key key-hp"></span><span data-i18n="hpRunning">Wärmepumpe läuft</span></span>
+      <span><span class="key key-defrost"></span><span data-i18n="defrost">Abtauen</span></span>
+    </p>
+    <ol class="events" id="day-events"></ol>
+  </section>
+</section>
+
+<script src="report.js"></script>
 <script src="hmi.js"></script>
 </body>
 </html>

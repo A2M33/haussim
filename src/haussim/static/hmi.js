@@ -189,14 +189,21 @@ let spProblem = null;
 let demo = null;
 
 const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/";
-const DEMO_MODULES = ["__init__", "process", "electrical", "plc", "sim", "commands"];
+const DEMO_MODULES = ["__init__", "process", "electrical", "plc", "sim", "commands", "history"];
 const DEMO_GLUE = `
-import json, sys
+import json, os, sys
 sys.path.insert(0, "/home/pyodide")
 from haussim.sim import Simulator
 from haussim.commands import CommandError, apply_command
 
 sim = Simulator()
+year = None
+if os.path.exists("/home/pyodide/year.db"):
+    from haussim.history import Store
+    year = Store("/home/pyodide/year.db")
+
+def report(what, arg):
+    return json.dumps(year.report(what, arg or None))
 
 def step(real_s):
     if not sim.paused:
@@ -219,7 +226,7 @@ def command(body):
 // ---- helpers ---------------------------------------------------------
 
 const t = (key, ...args) => {
-  const v = I18N[lang][key];
+  const v = key in I18N[lang] ? I18N[lang][key] : REPORT_I18N[lang][key];
   return typeof v === "function" ? v(...args) : v;
 };
 
@@ -303,6 +310,7 @@ function applyLanguage() {
   for (const [key, , names] of SETPOINTS) $("sp-" + key + "-label").textContent = names[lang === "de" ? 0 : 1];
   for (const g of document.querySelectorAll(".sp-group")) g.textContent = t(g.dataset.group);
   if (demo) $("demo-note").innerHTML = t("demoReady");
+  renderReport();
   drawn.clear();
   if (state) render(state);
 }
@@ -892,6 +900,7 @@ async function start() {
   buildSetpointForm();
   buildSpeeds();
   buildBoard();
+  initReport();
   wire();
   applyLanguage();
   setText("alarm-summary", t("noData"));
@@ -937,9 +946,16 @@ async function startDemo() {
       if (!res.ok) throw new Error(`Could not load ${name}.py`);
       py.FS.writeFile(`/home/pyodide/haussim/${name}.py`, await res.text());
     }
+    // The sample year for the report view. Without it the plant still runs.
+    const year = await fetch("year.db").catch(() => null);
+    if (year && year.ok) {
+      await py.loadPackage("sqlite3");
+      py.FS.writeFile("/home/pyodide/year.db", new Uint8Array(await year.arrayBuffer()));
+    }
     const ns = py.globals.get("dict")();
     py.runPython(DEMO_GLUE, { globals: ns });
     demo = { step: ns.get("step"), snapshot: ns.get("snapshot"), command: ns.get("command") };
+    if (ns.get("year")) demo.report = ns.get("report");
     history = JSON.parse(ns.get("history")());
   } catch (err) {
     note.textContent = t("demoFailed", err.message);

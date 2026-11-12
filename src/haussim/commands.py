@@ -80,6 +80,7 @@ def apply_command(sim: Simulator, body: dict) -> None:
             lo, hi = OUTSIDE_RANGE
             if not _is_number(value) or not lo <= value <= hi:
                 raise CommandError(f"Outside mean must be between {lo:g} and {hi:g} °C")
+            sim.seasonal = False  # the slider takes over from the calendar
             p.outside_mean_c = float(value)
         elif cmd == "fault":
             name = body.get("name")

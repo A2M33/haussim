@@ -145,6 +145,7 @@ class Plc:
         self._reset_request = False
         self._evu_was = False
         self._frost = False
+        self.log_count = 0  # events ever logged, so a recorder can tell which are new
 
     # Operator commands -------------------------------------------------------
 
@@ -336,6 +337,7 @@ class Plc:
 
     def _log(self, kind: str, text: str) -> None:
         self.events.append((self.clock, kind, text))
+        self.log_count += 1
 
 
 def _in_window(minute: float, start: float, end: float) -> bool:

@@ -197,12 +197,13 @@ def _between(minute: float, start_h: float, end_h: float) -> bool:
 
 
 def household_w(minute: float) -> dict[str, float]:
-    """A plain weekday for two people, in watts per circuit."""
-    light = 220.0 if _between(minute, 6, 8) or _between(minute, 17, 23) else 15.0
-    living = 60.0 + (180.0 if _between(minute, 19, 23) else 0.0)  # router, standby, TV in the evening
+    """A plain weekday for two people, in watts per circuit: about 6.8 kWh a
+    day, some 2,700 kWh a year with the circulation pump."""
+    light = 120.0 if _between(minute, 6, 8) or _between(minute, 17, 23) else 10.0  # LED
+    living = 40.0 + (120.0 if _between(minute, 19, 23) else 0.0)  # router, standby, TV in the evening
     fridge = 90.0 if int(minute) % 30 < 12 else 5.0  # compressor cycles
     kettle = 2000.0 if any(_between(minute, h, h + 0.05) for h in (6.5, 13, 18.5)) else 0.0
-    cooker = 3000.0 if _between(minute, 12, 12.75) or _between(minute, 18.5, 19.25) else 0.0
+    cooker = 2000.0 if _between(minute, 12, 12.5) or _between(minute, 18.5, 19) else 0.0
     if _between(minute, 10, 10.33):
         washer = 2000.0  # heating the water
     elif _between(minute, 10.33, 11.5):

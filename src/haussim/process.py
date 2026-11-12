@@ -88,6 +88,7 @@ class Process:
         self.cop = 0.0
         self.heat_kwh = 0.0
         self.elec_kwh = 0.0
+        self.rod_kwh = 0.0
 
         # Faults the user can inject from the simulator panel.
         self.hp_broken = False  # compressor does not start
@@ -176,6 +177,7 @@ class Process:
 
         self.heat_kwh += max(0.0, self.hp_heat_w) * dt / 3.6e6
         self.elec_kwh += (self.hp_elec_w + self.rod_w_now) * dt / 3.6e6
+        self.rod_kwh += self.rod_w_now * dt / 3.6e6
         self.clock_s += dt
 
         for name, true in (("outside", self.outside_c), ("room", self.room_c), ("buffer", self.buffer_c)):

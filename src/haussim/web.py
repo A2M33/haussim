@@ -1,6 +1,7 @@
 """HTTP server for the browser HMI.
 
 GET  /api/state     one snapshot as JSON
+GET  /api/report    ?what=months, ?what=days&arg=YYYY-MM, ?what=day&arg=YYYY-MM-DD
 GET  /api/history   trend samples [clock, outside, room, buffer, flow target, heat W, electric W]
 GET  /api/stream    server-sent events, a snapshot four times a second
 POST /api/command   {"cmd": ..., ...}
@@ -23,7 +24,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from .commands import CommandError, apply_command
 from .sim import Simulator
@@ -37,6 +38,7 @@ STATIC = {
     "/tokens.css": ("tokens.css", "text/css; charset=utf-8"),
     "/hmi.css": ("hmi.css", "text/css; charset=utf-8"),
     "/hmi.js": ("hmi.js", "text/javascript; charset=utf-8"),
+    "/report.js": ("report.js", "text/javascript; charset=utf-8"),
     **{f"/fonts/{name}.woff2": (f"fonts/{name}.woff2", "font/woff2") for name in FONTS},
     **{f"/icons/haussim-{size}.png": (f"icons/haussim-{size}.png", "image/png") for size in (16, 32, 180)},
 }
@@ -74,6 +76,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(200, sim.snapshot())
         elif path == "/api/history":
             self._json(200, sim.history_list())
+        elif path == "/api/report":
+            self._report(sim)
         elif path == "/api/stream":
             self._stream()
         else:
@@ -111,6 +115,18 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": str(err)})
         else:
             self._json(200, {"ok": True})
+
+    def _report(self, sim) -> None:
+        query = parse_qs(urlsplit(self.path).query)
+        what = query.get("what", ["months"])[0]
+        arg = query.get("arg", [None])[0]
+        if sim.store is None:
+            self._json(404, {"error": "This plant keeps no log"})
+            return
+        try:
+            self._json(200, sim.store.report(what, arg))
+        except ValueError as err:
+            self._json(400, {"error": str(err)})
 
     def _foreign_request(self) -> str | None:
         """Why this request may not come from the HMI page, or None."""

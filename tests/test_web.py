@@ -169,3 +169,32 @@ def test_unknown_path(server):
 def test_run_parser_defaults():
     args = build_parser().parse_args(["run", "--no-browser"])
     assert args.speed == 120 and args.http_port == 8080 and args.no_browser
+
+
+def test_report_endpoint():
+    from haussim.history import Store
+
+    sim = Simulator(Process(seed=1), store=Store())
+    for _ in range(1440):
+        sim.step(60)
+    srv = HmiServer(sim, port=0)
+    srv.start()
+    try:
+        _, body = get(srv, "/api/report?what=months")
+        assert json.loads(body)[0]["month"] == "2026-01"
+        _, body = get(srv, "/api/report?what=days&arg=2026-01")
+        assert len(json.loads(body)) == 2
+        _, body = get(srv, "/api/report?what=day&arg=2026-01-01")
+        assert json.loads(body)["samples"]
+        with pytest.raises(urllib.error.HTTPError) as err:
+            get(srv, "/api/report?what=years")
+        assert err.value.code == 400
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+
+def test_report_without_log(server):
+    with pytest.raises(urllib.error.HTTPError) as err:
+        get(server, "/api/report")
+    assert err.value.code == 404

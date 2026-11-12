@@ -14,6 +14,10 @@
   --fault-fill: var(--fault);
   --cold: var(--inset);
   --warm: color-mix(in srgb, var(--warn) 45%, var(--panel));
+  /* report charts: two series, checked with the dataviz palette validator
+     (lightness band, chroma, colour-blind separation, 3:1 on the chart ground) */
+  --c-heat: #a8690a;
+  --c-elec: #2f6fd0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,6 +28,8 @@
     --fault-text: color-mix(in srgb, var(--fault) 70%, var(--ink));
     --fault-fill: color-mix(in srgb, var(--fault) 85%, var(--ink));
     --warm: color-mix(in srgb, var(--warn) 35%, var(--panel));
+    --c-heat: #b87a14;
+    --c-elec: #5b8def;
   }
 }
 
@@ -297,6 +303,45 @@ tr.unacked .state-cell { animation: flash-cell 1s steps(1) infinite; }
 .heat-fill.hot { background: var(--warn); }
 .test-btn { min-height: 32px; padding: 0 var(--s2); font-size: var(--t-xs); }
 
+/* report view */
+.view-report .grid, .view-report .sim { display: none; }
+.report { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); padding: var(--s3) var(--s5) var(--s5); }
+.report > * { min-width: 0; }
+.report-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2) var(--s4); }
+.report-head h2 { margin: 0; }
+.report-head .hint { margin: 0; flex: 1; max-width: none; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s3); margin: 0; }
+.tiles div { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-panel); padding: var(--s3) var(--s4); }
+.tiles dt { color: var(--ink-2); font-size: var(--t-sm); }
+.tiles dd { margin: 0; font-size: var(--t-2xl); font-weight: 500; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.tiles dd small { font-size: 0.5em; color: var(--ink-2); margin-inline-start: 0.2em; }
+.chart-box { position: relative; }
+.chart-box canvas { width: 100%; display: block; background: var(--ground); border: 1px solid var(--line); border-radius: var(--r-control); cursor: crosshair; }
+#chart-months, #chart-days { cursor: pointer; }
+#chart-months { height: 260px; }
+#chart-days { height: 220px; }
+#chart-day { height: 240px; }
+.tooltip {
+  position: absolute; top: 8px; pointer-events: none; z-index: 2;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-control);
+  padding: var(--s2) var(--s3); font-size: var(--t-sm); box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+  min-width: 160px; font-variant-numeric: tabular-nums;
+}
+.tooltip strong { display: block; margin-bottom: 2px; }
+.tooltip .row { display: flex; justify-content: space-between; gap: var(--s4); }
+.tooltip .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-inline-end: 6px; vertical-align: -1px; }
+.key-heat { height: 10px; width: 12px; border-radius: 2px; background: var(--c-heat); }
+.key-elec { height: 10px; width: 12px; border-radius: 2px; background: var(--c-elec); }
+.legend-note { margin-inline-start: auto; }
+.table-wrap { overflow-x: auto; margin-top: var(--s3); max-height: 520px; overflow-y: auto; }
+table.data th, table.data td { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.data th:first-child, table.data td:first-child { text-align: left; }
+table.data thead th { position: sticky; top: 0; background: var(--panel); }
+table.data tbody tr { cursor: pointer; }
+@media (hover: hover) { table.data tbody tr:hover td { background: var(--inset); } }
+table.data tr[aria-selected="true"] td { box-shadow: inset 0 -2px 0 var(--link); font-weight: 600; }
+table.data tfoot td { font-weight: 600; border-top: 1px solid var(--line); }
+
 /* simulator: set apart so nobody mistakes it for plant controls */
 .sim {
   margin: 0 var(--s5) var(--s5);
@@ -330,6 +375,7 @@ input[type="range"] { width: 100%; accent-color: var(--ink); }
   .bar-end { grid-column: 1 / -1; justify-self: stretch; }
   .alarm-summary { flex: 1; }
   .sim { margin: 0 var(--s3) var(--s3); }
+  .report { padding: var(--s3); }
 }
 
 @media (pointer: coarse), (max-width: 600px) {

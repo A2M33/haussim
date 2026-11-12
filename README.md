@@ -89,6 +89,29 @@ Alarms follow ISA-18.2: an alarm arrives unacknowledged and flashes, and it leav
 
 On a day with a mean of -2 °C the room stays between 20.5 and 21 °C and the seasonal COP comes out at about 3, in line with real air/water heat pumps on floor heating. The [wiki notes](wiki/README.md) explain each number.
 
+## The plant log and the report
+
+Start haussim with `--db plant.db` and it writes the plant into an SQLite file, one sample a minute. Start it again with the same file and it picks up on the next day. The report view (Auswertung) shows the log by month and by day, with the course of any single day and its events. The live demo comes with a sample year.
+
+Energy, starts and run time go into the log as meter readings. A day's energy is the meter at the end of the day minus the meter at the end of the day before, so the figures stay exact even with a sample every 15 minutes.
+
+`--seasonal` lets the outside temperature follow a German year (about 1 °C in mid-January, 18 °C in mid-July) with a few days of cold or mild weather mixed in. A full year takes about four minutes:
+
+```
+$ haussim simulate --days 365 --seasonal --db year.db --every 900
+month    days  outside  heat kWh  elec kWh  rod kWh  house kWh   JAZ  starts  run h
+2026-01    31      1.8      1980       596        0        243   3.32     654    327
+2026-02    28      3.0      1660       473        0        219   3.51     620    260
+...
+2026-12    31      1.4      2018       612        0        243   3.30     655    335
+total                      12633      3316        0       2759   3.81    5294   1873
+$ haussim report year.db
+```
+
+A seasonal performance factor (JAZ) of 3.8 fits a good air/water heat pump on floor heating. The summer months reach about 6 because haussim has no hot water tank yet.
+
+![The report view of the sample year: tiles with JAZ 3.81, 12,633 kWh heat and 3,316 kWh heat pump electricity, a bar chart of heat and electricity per month with a tooltip on January, the monthly table, the days of January and the course of one day.](docs/report.png)
+
 ## Tests
 
 ```
@@ -96,7 +119,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-The 54 tests check the breaker curves against IEC 60898, the RCDs, short circuits and overloads. They run a winter day, a summer day, the grid lock, a broken compressor, a seized pump, a broken outside sensor, the high-pressure switch, an open window and frost. They also check every HMI command and the HTTP server's guard against commands from other websites.
+The 63 tests check the breaker curves against IEC 60898, the RCDs, short circuits and overloads, and that the daily energy in the log adds up to the meters. They run a winter day, a summer day, the grid lock, a broken compressor, a seized pump, a broken outside sensor, the high-pressure switch, an open window and frost. They also check every HMI command and the HTTP server's guard against commands from other websites.
 
 ---
 
@@ -137,6 +160,13 @@ Der Browser öffnet die HMI unter http://localhost:8080. Mit `--speed 600` läuf
 - **Leitungsschutzschalter** B10, B16 und C16 (Verdichter), thermisch und magnetisch auslösend nach IEC 60898
 - **Fehlersignalkontakte** melden der SPS, welcher Schalter ausgelöst hat
 - **Fehlersuche:** Bei einem Isolationsfehler löst Q1 sofort wieder aus. Schalten Sie die Leitungsschutzschalter nacheinander aus, bis Q1 hält.
+
+## Anlagenprotokoll und Auswertung
+
+- `--db anlage.db` schreibt die Anlage in eine SQLite-Datei und setzt beim nächsten Start am Folgetag fort.
+- Energie, Starts und Laufzeit werden als Zählerstände gespeichert, die Tageswerte sind damit exakt.
+- Die Ansicht „Auswertung“ zeigt Monate, Tage und den Verlauf eines Tages. Die Live-Demo hat ein Beispieljahr mit einer Jahresarbeitszahl von 3,81.
+- `--seasonal` lässt die Außentemperatur einem deutschen Jahr folgen, mit wechselndem Wetter.
 
 ## Lizenz
 

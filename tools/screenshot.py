@@ -124,5 +124,32 @@ def main(out: Path) -> None:
         server.terminate()
 
 
+def report_shot(out: Path, site: Path) -> None:
+    """The report view of the built demo site, which carries a full sample year."""
+    server = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT + 1), "-d", str(site)],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        time.sleep(1)
+        with sync_playwright() as p:
+            browser = launch(p)
+            page = browser.new_page(viewport={"width": 1440, "height": 900}, color_scheme="dark")
+            page.goto(f"http://localhost:{PORT + 1}/")
+            page.wait_for_function("!document.body.classList.contains('waiting')", timeout=120000)
+            page.click("[data-view=report]")
+            page.wait_for_selector("#months-table tbody tr")
+            page.locator("#months-table tbody tr").nth(0).click()  # January: a winter month
+            page.wait_for_timeout(1500)
+            box = page.locator("#chart-months").bounding_box()
+            page.mouse.move(box["x"] + 60 + (box["width"] - 70) * 0.5 / 12, box["y"] + box["height"] * 0.5)
+            page.wait_for_timeout(300)
+            page.locator(".report").screenshot(path=out / "report.png")
+            browser.close()
+    finally:
+        server.terminate()
+
+
 if __name__ == "__main__":
-    main(Path(sys.argv[1] if len(sys.argv) > 1 else "docs"))
+    docs = Path(sys.argv[1] if len(sys.argv) > 1 else "docs")
+    main(docs)
+    if (ROOT / "site" / "year.db").exists():  # python tools/build_site.py site
+        report_shot(docs, ROOT / "site")
