@@ -1,14 +1,14 @@
 # haussim
 
-A small house with an air/water heat pump, a 300 L buffer tank, floor heating and its distribution board, and the PLC program that heats it. It comes with a browser HMI in German and English.
+![The HMI in its dark theme. The heat pump runs and charges the buffer tank. The grid operator lock turns its lamp amber and stops the compressor while the buffer cools. Then the compressor is blocked: the unit turns red, the header shows one alarm not acknowledged and the faceplate reads "Störung, bitte zurücksetzen". After a reset the heat pump runs again.](docs/demo.gif)
 
-**[Try the live demo ↗](https://a2m33.github.io/haussim/)** Your browser runs the same Python code through Pyodide. Set a grid lock or block the compressor and watch the PLC react, with nothing to install.
+haussim simulates a small house heated by an air/water heat pump and runs the PLC program that controls the heating. The house has a 300 L buffer tank, floor heating and a distribution board with RCDs and breakers. You watch and operate it in a browser HMI, in German or English.
+
+You can try it in the [live demo](https://a2m33.github.io/haussim/) without installing anything. Your browser runs the same Python code through Pyodide, so you can set a grid lock or block the compressor and see how the PLC reacts.
 
 [Deutsche Fassung weiter unten](#deutsch)
 
-![The HMI in its dark theme. The heat pump runs and charges the buffer tank. The grid operator lock turns its lamp amber and stops the compressor while the buffer cools. Then the compressor is blocked: the unit turns red, the header shows one alarm not acknowledged and the faceplate reads "Störung, bitte zurücksetzen". After a reset the heat pump runs again.](docs/demo.gif)
-
-I built haussim to learn how a heat pump system is controlled before I start an apprenticeship in Germany. It needs Python 3.10 or newer and no other packages.
+I wrote haussim to learn how a heat pump system is controlled before I start an apprenticeship in Germany. It needs Python 3.10 or newer and no other packages.
 
 ## Run it
 
@@ -17,7 +17,7 @@ pip install git+https://github.com/A2M33/haussim
 haussim run
 ```
 
-Your browser opens the HMI at http://localhost:8080. Time runs 120 times faster than real time. A house reacts over hours, so pick `--speed 600` to watch a whole day in under three minutes, or `--speed 1` for real time. `--outside -10` starts a colder day.
+Your browser opens the HMI at http://localhost:8080. Time runs 120 times faster than real time. A house takes hours to react, so `--speed 600` shows a whole day in under three minutes. `--speed 1` runs in real time, and `--outside -10` starts a colder day.
 
 To print a day without the HMI:
 
@@ -32,14 +32,14 @@ Heat 87.0 kWh, electricity 31.0 kWh, seasonal COP 2.81
 
 ## Things to try
 
-- **Set the grid lock** (EVU-Sperre). German grid operators may switch heat pumps off for a few hours a day in return for a cheaper tariff. The PLC stops the compressor and the heating rod at once, and the buffer and the house's thermal mass carry the room through.
+- **Set the grid lock** (EVU-Sperre). German grid operators may switch heat pumps off for a few hours a day in return for a cheaper tariff. The PLC stops the compressor and the heating rod at once. The buffer and the thermal mass of the house keep the room warm in the meantime.
 - **Block the compressor.** The PLC expects the running feedback within 90 seconds. Without it, the PLC latches a fault, raises a high priority alarm and lets the 6 kW heating rod take over.
-- **Seize the circulation pump.** After 10 seconds without feedback the PLC latches a pump fault and keeps both heat sources off, because the heat has nowhere to go.
-- **Disconnect the outside sensor.** The reading drops to -60 °C, the PLC calls the sensor broken and carries on with a fixed 0 °C.
+- **Seize the circulation pump.** After 10 seconds without feedback the PLC latches a pump fault and keeps both heat sources off, since the heat has nowhere to go.
+- **Disconnect the outside sensor.** The reading drops to -60 °C. The PLC marks the sensor as broken and carries on with a fixed 0 °C.
 - **Open a window.** The room loses about 250 W per kelvin more. The PLC raises the flow target by 2 K for every kelvin the room falls below its setpoint.
-- **Change the heating curve** (Steilheit, Parallelverschiebung) and watch the line in the chart move with it.
-- **Cause an insulation fault in the washing machine.** RCD Q1 trips and takes the circulation pump with it, so the heating stops too. Switch Q1 back on and it trips again at once. Find the faulty circuit the way an electrician does: switch the breakers off one by one until Q1 holds.
-- **Short the living room sockets.** Breaker F2 opens instantly on its magnetic release and stays open while the short is there.
+- **Change the heating curve** (Steilheit, Parallelverschiebung) and the line in the chart moves with it.
+- **Cause an insulation fault in the washing machine.** RCD Q1 trips and cuts the circulation pump too, so the heating stops. If you switch Q1 back on, it trips again at once. You find the faulty circuit the way an electrician does: switch the breakers off one by one until Q1 holds.
+- **Short the living room sockets.** Breaker F2 opens at once on its magnetic release and stays open while the short is there.
 - **Overload the kitchen** with 5 kW. Breaker F3 warms up (the bar under it fills) and trips after about six minutes.
 - **Press the test button** on an RCD. Electricians tell German homeowners to do this twice a year.
 
@@ -50,15 +50,15 @@ Heat 87.0 kWh, electricity 31.0 kWh, seasonal COP 2.81
 | Q1 | RCD 30 mA | household: F1 lighting B10, F2 living room sockets B16, F3 kitchen sockets B16, F4 cooker B16 3-pole, F5 washing machine B16, F6 circulation pump B10 |
 | Q2 | RCD 30 mA | heat pump: F7 compressor C16 3-pole, F8 heating rod B16 3-pole |
 
-The breakers in [`electrical.py`](src/haussim/electrical.py) trip like real ones. The magnetic release opens at 5 × In for type B and 10 × In for type C, which lets the compressor's inrush through. The thermal release follows (I/In)² with a three minute time constant: it never trips at 1.13 × In, trips at 1.45 × In after about five minutes and at 2.55 × In within a minute, as IEC 60898 requires. An RCD trips once the leakage behind it reaches 21 mA.
+The breakers in [`electrical.py`](src/haussim/electrical.py) follow the trip curves of real ones. The magnetic release opens at 5 × In for type B and 10 × In for type C, which lets the compressor's inrush current through. The thermal release follows (I/In)² with a three minute time constant. As IEC 60898 requires, it does not trip at 1.13 × In, trips at 1.45 × In after about five minutes and at 2.55 × In within a minute. An RCD trips once the leakage behind it reaches 21 mA.
 
 ![The distribution board in the HMI after an insulation fault and a short circuit: RCD Q1 and breaker F2 are framed in red and read "Fehlerstrom" and "Kurzschluss", and the other breakers behind Q1 have no power. Each breaker has a bar for how warm its thermal release is.](docs/board.png)
 
-Household loads follow a weekday: light in the morning and evening, a kettle three times a day, the cooker at lunch and dinner, a wash at ten. The heat pump draws its real current from the simulation. Fault signal contacts on Q1, Q2, F6, F7 and F8 report a trip to the PLC, so it raises a named alarm instead of a vague feedback fault, and it lets the heating rod take over if F7 trips.
+Household loads follow a weekday: light in the morning and evening, a kettle three times a day, the cooker at lunch and dinner and a wash at ten. The heat pump draws the current the simulation calculates for it. Fault signal contacts on Q1, Q2, F6, F7 and F8 report a trip to the PLC. The PLC then raises an alarm that names the device instead of a general feedback fault, and if F7 trips it lets the heating rod take over.
 
 ## How the PLC decides
 
-The program in [`plc.py`](src/haussim/plc.py) runs once per scan, like the main cycle of a real PLC. It sees what a real controller sees: three temperature sensors, the compressor and pump feedback, the high-pressure switch, the defrost signal and the grid operator's lock.
+The program in [`plc.py`](src/haussim/plc.py) runs once per scan, like the main cycle of a real PLC. It gets the signals a real controller gets: three temperature sensors, the compressor and pump feedback, the high-pressure switch, the defrost signal and the grid operator's lock.
 
 | Situation | What the PLC does |
 | --- | --- |
@@ -73,7 +73,7 @@ The program in [`plc.py`](src/haussim/plc.py) runs once per scan, like the main 
 | Room below 7 °C or buffer below 8 °C | Frost protection, even in standby |
 | Feedback missing, sensor out of range | Latches a fault and raises an alarm |
 
-Alarms follow ISA-18.2: an alarm arrives unacknowledged and flashes, and it leaves the list once it has cleared and you have acknowledged it. The HMI follows ISA-101 like my [tanksim](https://github.com/A2M33/tanksim) project. Colour marks state only: cyan for running equipment, amber for the grid lock and medium alarms, red for faults. The buffer tank is the one exception. It fills from grey towards amber as it heats, because its temperature is the first thing you read.
+Alarms follow ISA-18.2. A new alarm is unacknowledged and flashes, and it leaves the list once it has cleared and you have acknowledged it. The HMI follows ISA-101 like my [tanksim](https://github.com/A2M33/tanksim) project, so colour only marks state. Cyan means running equipment, amber the grid lock and medium alarms, red a fault. The buffer tank is the one exception: it fills from grey towards amber as it heats, because its temperature is the first thing an operator looks at.
 
 ![The full HMI in English after the circulation pump seized: the pump symbol is red, one high priority alarm sits above the event log, and the 24 hour trend shows room, buffer, flow target and outside temperature.](docs/hmi-fault.png)
 
@@ -87,15 +87,15 @@ Alarms follow ISA-18.2: an alarm arrives unacknowledged and flashes, and it leav
 | Floor heating | 360 W/K between buffer and room |
 | Heating rod | 6 kW |
 
-On a day with a mean of -2 °C the room stays between 20.5 and 21 °C and the seasonal COP comes out at about 3, in line with real air/water heat pumps on floor heating. The [wiki notes](wiki/README.md) explain each number.
+On a day with a mean of -2 °C the room stays between 20.5 and 21 °C and the seasonal COP comes out at about 3. Real air/water heat pumps on floor heating reach similar values. The [wiki notes](wiki/README.md) explain where each number comes from.
 
 ## The plant log and the report
 
-Start haussim with `--db plant.db` and it writes the plant into an SQLite file, one sample a minute. Start it again with the same file and it picks up on the next day. The report view (Auswertung) shows the log by month and by day, with the course of any single day and its events. The live demo comes with a sample year.
+Start haussim with `--db plant.db` and it writes the plant into an SQLite file, one sample a minute. If you start it again with the same file, it picks up on the next day. The report view (Auswertung) shows the log by month and by day, down to the course of a single day and its events. The live demo comes with a sample year.
 
-Energy, starts and run time go into the log as meter readings. A day's energy is the meter at the end of the day minus the meter at the end of the day before, so the figures stay exact even with a sample every 15 minutes.
+haussim logs energy, starts and run time as meter readings. A day's energy is the meter at the end of the day minus the meter at the end of the day before, so the daily figures stay exact even with one sample every 15 minutes.
 
-`--seasonal` lets the outside temperature follow a German year (about 1 °C in mid-January, 18 °C in mid-July) with a few days of cold or mild weather mixed in. A full year takes about four minutes:
+With `--seasonal` the outside temperature follows a German year (about 1 °C in mid-January, 18 °C in mid-July), with a few days of cold or mild weather mixed in. A full year takes about four minutes:
 
 ```
 $ haussim simulate --days 365 --seasonal --db year.db --every 900
@@ -119,7 +119,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-The 63 tests check the breaker curves against IEC 60898, the RCDs, short circuits and overloads, and that the daily energy in the log adds up to the meters. They run a winter day, a summer day, the grid lock, a broken compressor, a seized pump, a broken outside sensor, the high-pressure switch, an open window and frost. They also check every HMI command and the HTTP server's guard against commands from other websites.
+The 63 tests check the breaker curves against IEC 60898, the RCDs, short circuits and overloads, and whether the daily energy in the log adds up to the meters. They run a winter day, a summer day, the grid lock, a broken compressor, a seized pump, a broken outside sensor, the high-pressure switch, an open window and frost. They also cover the HMI commands and the check in the HTTP server that refuses commands from other websites.
 
 ---
 
@@ -127,11 +127,11 @@ The 63 tests check the breaker curves against IEC 60898, the RCDs, short circuit
 
 # haussim (Deutsch)
 
-Ein kleines Haus mit Luft/Wasser-Wärmepumpe, 300-L-Pufferspeicher, Fußbodenheizung und Unterverteilung, dazu das SPS-Programm, das es heizt. Mit Browser-HMI auf Deutsch und Englisch.
+haussim simuliert ein kleines Haus mit Luft/Wasser-Wärmepumpe, 300-L-Pufferspeicher, Fußbodenheizung und Unterverteilung, dazu das SPS-Programm, das die Heizung regelt. Die HMI läuft im Browser, auf Deutsch oder Englisch.
 
-**[Live-Demo öffnen ↗](https://a2m33.github.io/haussim/)** Ihr Browser führt denselben Python-Code mit Pyodide aus. Setzen Sie eine EVU-Sperre oder blockieren Sie den Verdichter und sehen Sie zu, wie die SPS reagiert.
+Die [Live-Demo](https://a2m33.github.io/haussim/) läuft ohne Installation. Ihr Browser führt denselben Python-Code mit Pyodide aus. Setzen Sie eine EVU-Sperre oder blockieren Sie den Verdichter und sehen Sie zu, wie die SPS reagiert.
 
-Ich habe haussim gebaut, um vor meiner Ausbildung in Deutschland zu lernen, wie man eine Wärmepumpenanlage regelt.
+Ich habe haussim geschrieben, um vor meiner Ausbildung in Deutschland zu lernen, wie man eine Wärmepumpenanlage regelt.
 
 ## Starten
 
@@ -163,10 +163,10 @@ Der Browser öffnet die HMI unter http://localhost:8080. Mit `--speed 600` läuf
 
 ## Anlagenprotokoll und Auswertung
 
-- `--db anlage.db` schreibt die Anlage in eine SQLite-Datei und setzt beim nächsten Start am Folgetag fort.
-- Energie, Starts und Laufzeit werden als Zählerstände gespeichert, die Tageswerte sind damit exakt.
+- `--db anlage.db` schreibt die Anlage in eine SQLite-Datei. Beim nächsten Start mit derselben Datei geht es am Folgetag weiter.
+- haussim speichert Energie, Starts und Laufzeit als Zählerstände, deshalb stimmen die Tageswerte exakt.
 - Die Ansicht „Auswertung“ zeigt Monate, Tage und den Verlauf eines Tages. Die Live-Demo hat ein Beispieljahr mit einer Jahresarbeitszahl von 3,81.
-- `--seasonal` lässt die Außentemperatur einem deutschen Jahr folgen, mit wechselndem Wetter.
+- Mit `--seasonal` folgt die Außentemperatur einem deutschen Jahr, mit wechselndem Wetter.
 
 ## Lizenz
 
