@@ -306,6 +306,7 @@ tr.unacked .state-cell { animation: flash-cell 1s steps(1) infinite; }
 /* report view */
 .view-report .grid, .view-report .sim { display: none; }
 .report { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); padding: var(--s3) var(--s5) var(--s5); }
+.report[hidden] { display: none; }
 .report > * { min-width: 0; }
 .report-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2) var(--s4); }
 .report-head h2 { margin: 0; }
